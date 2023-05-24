@@ -1,16 +1,25 @@
-version: '2'
+version: '3'
 services:
   db:
-    image: postgres:15
-    user: root
+    image: postgres:13.2-alpine
+    restart: always
+    container_name: db_odoo_psql
+    command: postgres -c 'max_connections=250'
     environment:
-      - POSTGRES_USER=odoo
-      - POSTGRES_PASSWORD=odoo16@2022      
-      - POSTGRES_DB=postgres
-    restart: always             # run as a service
+      POSTGRES_DB: db_odoo_erp
+      POSTGRES_USER: odoo_erp
+      POSTGRES_PASSWORD: 123456ca@A
+      PGDATA: /data/postgres
     volumes:
-        - ./postgresql:/var/lib/postgresql/data
-
+       - db:/data/postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "odoo_erp", "-d", "db_odoo_erp", "-e", db_odoo_erp]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
   odoo16:
     image: odoo:16
     user: root
@@ -20,16 +29,19 @@ services:
       - "10016:8069"
       - "20016:8072" # live chat
     tty: true
-    command: --
+    command: odoo -i base -d db_odoo_erp --db_host=db -r odoo_erp -w 123456ca@A --addons-path=/mnt/extra-addons --dev xml
     environment:
       - HOST=db
-      - USER=odoo
-      - PASSWORD=odoo16@2022
+      - USER=odoo_erp
+      - PASSWORD=123456ca@A
     volumes:
       #- /etc/timezone:/etc/timezone:ro
       #- /etc/localtime:/etc/localtime:ro
-      # - ./entrypoint.sh:/entrypoint.sh   # if you want to install additional Python packages, uncomment this line!
-      - ./addons:/mnt/extra-addons
+      # - ./entrypoint/entrypoint.sh:/entrypoint.sh   # if you want to install additional Python packages, uncomment this line!
+      - ./custom:/mnt/extra-addons
       - ./etc:/etc/odoo
-    restart: always             # run as a service
-    
+    restart: always 
+
+volumes:
+  db:
+    driver: local
